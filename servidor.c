@@ -104,7 +104,7 @@ main(int argc, char **argv)
             del_tag(subs, index, delTag);
         }
         else    {
-            fprintf(stdout, "Mensagem.\n");
+            fprintf(stdout, "Mensagem recebida.\n");
 
             //  Verifica a quantidade de tags na mensagem   //
             int qtdTags = tags_counter(msg);
@@ -116,7 +116,7 @@ main(int argc, char **argv)
             //  Envia as mensagens recebidas para os clientes assinantes    //
             for(int i = 0; i < qtdTags; i++)    {
                 for(int j = 0; j < 50; j++) {
-                    if(subs[j].exists)  {
+                    if((subs[j].exists) && (subs[j].addr.sin_port != client.sin_port))  {
                         for(int k = 0; k < 50; k++) {
                             if(!strcmp(subs[j].tags[k], tags[i]))   {
                                 socklen_t sublen = sizeof(subs[j].addr);
