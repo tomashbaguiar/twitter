@@ -73,11 +73,15 @@ main(int argc, char **argv)
             //  Recebe do teclado a mensagem a ser enviada  //
             char sMsg[500] = {0};
             memset(sMsg, 0, (500 * sizeof(char)));
-            //size_t read = fread(sMsg, (size_t) sizeof(char), 500, stdin);
-            fgets(sMsg, 500, stdin);
-            size_t read = strlen(sMsg);
-            sMsg[read - 1] = '\0';
-            read--;
+            char c = 0;
+            int read = 0;
+            while((c != '\n') && (read < 500))    {
+                c = fgetc(stdin);
+                if((c >= 32) && (c <= 125))
+                    sMsg[read++] = c;
+            }
+            sMsg[read++] = '\0';
+
 
             //  Envia as mensagens recebidas para os clientes assinantes    //
             if(sendto(sockfd, (char *) sMsg, (read * sizeof(char)), 0, (struct sockaddr *) &serv, slen) == -1) {
