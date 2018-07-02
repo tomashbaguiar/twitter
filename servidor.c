@@ -21,6 +21,8 @@ int find_client(struct clients *subs, struct sockaddr_in client);
 int add_client(struct clients *subs, struct sockaddr_in client);
 void add_tag(struct clients *subs, const int index, char *tag);
 void del_tag(struct clients *subs, const int index, char *tag);
+int tags_counter(char *msg);
+char **tag_retriever(char *msg, const int qtdTags);
 
 int
 main(int argc, char **argv)
@@ -73,7 +75,9 @@ main(int argc, char **argv)
         ssize_t recvd = recvfrom(sockfd, (char *) msg, (500 * sizeof(char)), 0, (struct sockaddr *) &client, &clen);
         if(recvd == 0)  {                                                       // Verifica se o cliente foi fechado.
             fprintf(stdout, "O cliente %hu foi fechado.\n", ntohs(client.sin_port));
-
+            int index = find_client(subs, client);
+            if(index != -1)
+                subs[index].exists = 0;
         }
         else if(recvd == -1)    {                                               // Verifica erro no recebimento da mensagem.
             perror("recvfrom");                                                 // Imprime o erro.
@@ -101,10 +105,29 @@ main(int argc, char **argv)
         }
         else    {
             fprintf(stdout, "Mensagem.\n");
+
+            //  Verifica a quantidade de tags na mensagem   //
+            int qtdTags = tags_counter(msg);
+
+
+            //  Recupera as tags da mensagem    //
+            char **tags = tag_retriever(msg, qtdTags);
+
             //  Envia as mensagens recebidas para os clientes assinantes    //
-            if(sendto(sockfd, (char *) msg, (recvd * sizeof(char)), 0, (struct sockaddr *) &client, clen) == -1) {
-                perror("sendto");
-                return EXIT_FAILURE;
+            for(int i = 0; i < qtdTags; i++)    {
+                for(int j = 0; j < 50; j++) {
+                    if(subs[j].exists)  {
+                        for(int k = 0; k < 50; k++) {
+                            if(!strcmp(subs[j].tags[k], tags[i]))   {
+                                socklen_t sublen = sizeof(subs[j].addr);
+                                if(sendto(sockfd, (char *) msg, (recvd * sizeof(char)), 0, (struct sockaddr *) &(subs[j].addr), sublen) == -1) {
+                                    perror("sendto");
+                                    return EXIT_FAILURE;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -166,5 +189,41 @@ del_tag(struct clients *subs, const int index, char *tag)
             i = 50;
         }
     }
+}
+
+int
+tags_counter(char *msg)
+{
+    int counter = 0;
+    for(size_t i = 0; i < strlen(msg); i++)    {
+        if((msg[i] == '#') && (msg[i + 1] != ' '))
+            counter++;
+    }
+
+    return counter;
+}
+
+char **
+tag_retriever(char *msg, const int qtdTags)
+{            
+    //  Cria vetor com as tags  //
+    char **tags = malloc(qtdTags * sizeof(char *));
+    for(int i = 0; i < qtdTags; i++)
+        tags[i] = malloc(20 * sizeof(char));
+
+    int it = 0;
+    for(size_t i = 0; i < strlen(msg); i++)    {
+        if((msg[i] == '#') && (msg[i + 1] != ' '))  {
+            int ii = 0;
+            char c = msg[++i];
+            while((c != ' ') && (c != '\0'))    {
+                tags[it][ii++] = c;
+                c = msg[++i];
+            }
+            it++;
+        }
+    }
+
+    return tags;
 }
 
