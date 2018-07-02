@@ -11,6 +11,17 @@
 #include <netdb.h>
 #include <stdint.h>
 
+struct clients  {
+    int exists;
+    struct sockaddr_in addr;
+    char tags[50][20];
+};
+
+int find_client(struct clients *subs, struct sockaddr_in client);
+int add_client(struct clients *subs, struct sockaddr_in client);
+void add_tag(struct clients *subs, const int index, char *tag);
+void del_tag(struct clients *subs, const int index, char *tag);
+
 int
 main(int argc, char **argv)
 {
@@ -47,6 +58,14 @@ main(int argc, char **argv)
     socklen_t clen = sizeof(client);                                            // Guarda o tamanho da estrutura do cliente.
     char msg[500] = {0};                                                        // Buffer para recebimento das mensagens.
 
+    struct clients subs[50];                                                    // Vetor que guarda as informações dos assinantes.
+    for(int i = 0; i < 50; i++) {
+        memset(&(subs[i].addr), 0, sizeof(struct sockaddr_in));
+        subs[i].exists = 0;
+        for(int j = 0; j < 50; j++)
+            strcpy(subs[i].tags[j], "vazio");
+    }
+
     while(1)    {
         memset(&client, 0, clen);                                               // Zera a estrutura do cliente.
 
@@ -60,14 +79,25 @@ main(int argc, char **argv)
             perror("recvfrom");                                                 // Imprime o erro.
             return EXIT_FAILURE;                                                // Encerra o programa com sinal de erro.
         }
-printf("Recebido %s.\n", msg);
 
         //  Verifica o tipo de mensagem //
         if(msg[0] == '+')   {
-            fprintf(stdout, "Adicionar cliente.\n");
+            char *addTag = &msg[1];
+            fprintf(stdout, "Adicionar tag ao cliente.\n");
+            int index = find_client(subs, client);
+            if(index == -1) {
+                index = add_client(subs, client);
+            }
+            add_tag(subs, index, addTag);
         }
         else if(msg[0] == '-')  {
-            fprintf(stdout, "Remover cliente.\n");
+            char *delTag = &msg[1];
+            fprintf(stdout, "Remover tag do cliente.\n");
+            int index = find_client(subs, client);
+            if(index == -1) {
+                index = add_client(subs, client);
+            }
+            del_tag(subs, index, delTag);
         }
         else    {
             fprintf(stdout, "Mensagem.\n");
@@ -81,5 +111,60 @@ printf("Recebido %s.\n", msg);
 
     close(sockfd);                                                              // Fecha o endpoint do servidor.
     return EXIT_SUCCESS;                                                        // Encerra o programa com sinal de sucesso.
+}
+
+int
+find_client(struct clients *subs, struct sockaddr_in client)
+{
+    for(int i = 0; i < 50; i++) {
+        if(subs[i].addr.sin_port == client.sin_port)    {
+            fprintf(stdout, "Cliente [%hu] encontrado.\n", ntohs(subs[i].addr.sin_port));
+            return i;
+        }
+    }
+
+    fprintf(stdout, "Cliente [%hu] não encontrado.\n", ntohs(client.sin_port));
+
+    return -1;
+}
+
+int
+add_client(struct clients *subs, struct sockaddr_in client)
+{
+    for(int i = 0; i < 50; i++) {
+        if(subs[i].exists == 0) {
+            subs[i].addr = client;
+            subs[i].exists = 1;
+            fprintf(stdout, "Cliente [%hu] adicionado.\n", ntohs(subs[i].addr.sin_port));
+            //i = 50;
+            return i;
+        }
+    }
+
+    return 0;
+}
+
+void
+add_tag(struct clients *subs, const int index, char *tag)
+{
+    for(int i = 0; i < 50; i++) {
+        if(!strcmp(subs[index].tags[i], "vazio"))  {
+            strcpy(subs[index].tags[i], tag);
+            fprintf(stdout, "Adicionada tag [%s] ao cliente [%hu].\n", tag, ntohs(subs[index].addr.sin_port));
+            i = 50;
+        }
+    }
+}
+
+void
+del_tag(struct clients *subs, const int index, char *tag)
+{
+    for(int i = 0; i < 50; i++) {
+        if(!strcmp(subs[index].tags[i], tag))   {
+            strcpy(subs[index].tags[i], "vazio");
+            fprintf(stdout, "Removida tag [%s] do cliente [%hu].\n", tag, ntohs(subs[index].addr.sin_port));
+            i = 50;
+        }
+    }
 }
 
